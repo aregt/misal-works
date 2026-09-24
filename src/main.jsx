@@ -14,10 +14,14 @@ function Picture({ src, alt, sizes, className, priority = false, width, height }
   const w = width || meta?.w;
   const h = height || meta?.h;
   const srcSet = meta ? meta.srcset.map((vw) => `${imageWebp(src, vw)} ${vw}w`).join(", ") : "";
+  // Fallback, en büyük webp varyantıdır (FND-011: orijinal dosya repo'da olmayabilir).
+  const fallback = meta?.srcset?.length
+    ? imageWebp(src, meta.srcset[meta.srcset.length - 1])
+    : image(src);
   return <picture className={className}>
     {srcSet ? <source type="image/webp" srcSet={srcSet} sizes={sizes} /> : null}
     <img
-      src={image(src)}
+      src={fallback}
       alt={alt}
       width={w}
       height={h}
