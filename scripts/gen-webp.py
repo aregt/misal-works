@@ -57,6 +57,7 @@ def process(path: Path, relative: str, kind: str) -> dict:
 
 def main() -> None:
     catalog = []
+    # 1) Orijinal dosyalar (JPG/PNG) — FND-009.
     for path in sorted(IMG.rglob("*")):
         if path.suffix.lower() not in {".png", ".jpg", ".jpeg"}:
             continue
@@ -65,6 +66,33 @@ def main() -> None:
         rel = str(path.relative_to(IMG))
         kind = "icon" if rel.startswith("services" + os.sep) or rel.startswith("services/") else ("hero" if path.name in HERO else "card")
         catalog.append(process(path, rel, kind))
+    # 2) FND-011: orijinali olmayan webp-only görseller (ör. services).
+    known = {row["src"] for row in catalog}
+    for path in sorted(IMG.rglob("*.webp")):
+        rel = str(path.relative_to(IMG))
+        stem = path.stem
+        if "-" not in stem:
+            continue
+        base, _, wstr = stem.rpartition("-")
+        if not wstr.isdigit():
+            continue
+        # Orijinal dosya varsa (1) zaten işlendi.
+        if any(rel.endswith(ext) and rel.startswith(base) for ext in (".png", ".jpg", ".jpeg")):
+            continue
+        for ext in (".png", ".jpg", ".jpeg"):
+            if (IMG / f"{base}{ext}").exists():
+                break
+        else:
+            src_rel = f"{base}.png"
+            if src_rel in known:
+                continue
+            try:
+                im = Image.open(path)
+                w, h = im.size
+            except OSError:
+                continue
+            catalog.append({"src": src_rel.replace("\\", "/"), "w": w, "h": h, "kind": "icon", "srcset": [int(wstr)], "webp": [{"w": int(wstr), "kb": round(path.stat().st_size / 1024, 1), "q": None}]})
+            known.add(src_rel)
     js_rows = {row["src"]: {"w": row["w"], "h": row["h"], "srcset": row["srcset"]} for row in catalog}
     js = "/** FND-009 medya kataloğu — yeni görsel WebP'siz eklenmez. Üretim: python scripts/gen-webp.py */\nexport const MEDIA = " + json.dumps(js_rows, indent=2, ensure_ascii=False) + ";\n"
     OUT_JS.write_text(js, encoding="utf-8")
