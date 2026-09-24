@@ -1,10 +1,32 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { content } from "./content";
+import { MEDIA } from "./media";
 import "./styles.css";
 
 const Arrow = () => <span aria-hidden="true">→</span>;
+const CloseMark = () => <span className="close-mark" aria-hidden="true"><i /><i /></span>;
 const image = (path) => `${import.meta.env.BASE_URL}images/${path}`;
+const imageWebp = (path, width) => image(path.replace(/\.(png|jpe?g)$/i, `-${width}.webp`));
+
+function Picture({ src, alt, sizes, className, priority = false, width, height }) {
+  const meta = MEDIA[src];
+  const w = width || meta?.w;
+  const h = height || meta?.h;
+  const srcSet = meta ? meta.srcset.map((vw) => `${imageWebp(src, vw)} ${vw}w`).join(", ") : "";
+  return <picture className={className}>
+    {srcSet ? <source type="image/webp" srcSet={srcSet} sizes={sizes} /> : null}
+    <img
+      src={image(src)}
+      alt={alt}
+      width={w}
+      height={h}
+      loading={priority ? "eager" : "lazy"}
+      fetchPriority={priority ? "high" : undefined}
+      decoding="async"
+    />
+  </picture>;
+}
 
 function trackCenter(ref, duration) {
   const html = document.documentElement;
@@ -38,13 +60,14 @@ function Mark() {
   return <span className="mark" aria-hidden="true"><i /><i /></span>;
 }
 
-function Brand({ light = false }) {
-  const toTop = (e) => { e.preventDefault(); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { window.scrollTo(0, 0); } };
+function Brand({ light = false, onNavigate }) {
+  const toTop = (e) => { e.preventDefault(); onNavigate?.(); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { window.scrollTo(0, 0); } };
   return <a className={`brand ${light ? "brand-light" : ""}`} href="#top" aria-label="Sayfa başına dön" onClick={toTop}><Mark /><span><b>MISAL WORKS</b><small>FİLM &amp; POST-PRODÜKSİYON</small></span></a>;
 }
 
 function Hero() {
   const [activeNav, setActiveNav] = React.useState(null);
+  const [menuOpen, setMenuOpen] = React.useState(false);
   React.useEffect(() => {
     const hrefs = content.nav.map(([, href]) => href).filter((h) => h && h.startsWith("#") && h.length > 1);
     const onScroll = () => {
@@ -70,22 +93,55 @@ function Hero() {
     window.addEventListener("resize", onScroll);
     return () => { window.removeEventListener("scroll", onScroll); window.removeEventListener("resize", onScroll); };
   }, []);
+  React.useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e) => { if (e.key === "Escape") setMenuOpen(false); };
+    const onPointer = (e) => { if (!e.target.closest("header")) setMenuOpen(false); };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("pointerdown", onPointer);
+    document.body.classList.add("menu-open");
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("pointerdown", onPointer);
+      document.body.classList.remove("menu-open");
+    };
+  }, [menuOpen]);
+  React.useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1101px)");
+    const close = () => { if (mq.matches) setMenuOpen(false); };
+    mq.addEventListener("change", close);
+    return () => mq.removeEventListener("change", close);
+  }, []);
+  const closeMenu = () => setMenuOpen(false);
   return <section className="hero">
-    <img src={image("hero-portal.png")} alt="Işıklı bir geçide bakan kişi" />
-    <header><Brand /><nav>{content.nav.map(([label, href]) => {
-      const active = activeNav === href;
-      const cls = active ? "is-active" : undefined;
-      const cur = active ? "true" : undefined;
-      return href === "#showreel"
-        ? <a key={label} href={href} className={cls} aria-current={cur} onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent("misal:open-showreel")); }}><span>{label}</span></a>
-        : <a key={label} href={href} className={cls} aria-current={cur}><span>{label}</span></a>;
-    })}</nav><a className="top-cta" href="#contact">İşinizi Anlatın <Arrow /></a><button className="menu" aria-label="Menü">☰</button></header>
+    <Picture src="hero-portal.png" alt="Işıklı bir geçide bakan kişi" sizes="100vw" priority />
+    <header className={menuOpen ? "is-open" : undefined}>
+      <Brand onNavigate={closeMenu} />
+      <div className="nav-sheet" id="site-nav">
+        <nav>{content.nav.map(([label, href]) => {
+          const active = activeNav === href;
+          const cls = active ? "is-active" : undefined;
+          const cur = active ? "true" : undefined;
+          return href === "#showreel"
+            ? <a key={label} href={href} className={cls} aria-current={cur} onClick={(e) => { e.preventDefault(); closeMenu(); window.dispatchEvent(new CustomEvent("misal:open-showreel")); }}><span>{label}</span></a>
+            : <a key={label} href={href} className={cls} aria-current={cur} onClick={closeMenu}><span>{label}</span></a>;
+        })}</nav>
+        <a className="top-cta" href="#contact" onClick={closeMenu}>Projenizi Konuşalım <Arrow /></a>
+      </div>
+      <button
+        type="button"
+        className="menu"
+        aria-label={menuOpen ? "Menüyü kapat" : "Menü"}
+        aria-expanded={menuOpen}
+        aria-controls="site-nav"
+        onClick={() => setMenuOpen((open) => !open)}
+      >☰</button>
+    </header>
     <div className="hero-copy">
       <p className="eyebrow">{content.hero.kicker}</p>
       <h1>{content.hero.title}<br /><em>{content.hero.titleItalic}</em></h1>
       <span className="short-rule" />
       <p>{content.hero.body}</p>
-      <a className="pill" href="#work">{content.hero.action} <Arrow /></a>
     </div>
   </section>;
 }
@@ -100,7 +156,7 @@ function WorkCard({ item, onOpen, cardRef }) {
       aria-haspopup="dialog"
       aria-label={`${item.categoryLabel} — ${item.title} çalışmasını ${item.kind === "gallery" ? "incele" : "izle"}`}
     >
-      <img src={image(item.poster)} alt="" loading="lazy" />
+      <Picture src={item.poster} alt="" sizes="(max-width: 800px) 92vw, 42vw" width={item.width} height={item.height} />
       <span className="work-card-play" aria-hidden="true">{item.kind === "gallery" ? "▦" : "▶"}</span>
       <span className="work-card-text">
         <b>{item.categoryLabel}</b>
@@ -112,27 +168,44 @@ function WorkCard({ item, onOpen, cardRef }) {
 }
 
 function WorkStage({ item, videoRef, stageRef, muted, onToggleMute, videoError, onVideoError, onDoubleClick, onFullscreen }) {
-  const posterSrc = image(item.poster);
+  const [frameIdx, setFrameIdx] = React.useState(0);
+  const posterWebp = imageWebp(item.poster, 960);
+  const blurSrc = imageWebp(item.poster, 480);
   const isGallery = item.kind === "gallery" && Array.isArray(item.gallery) && item.gallery.length > 0;
+  const frames = isGallery ? item.gallery : [];
+  React.useEffect(() => { setFrameIdx(0); }, [item.id]);
   return <div className="viewer-stage" ref={stageRef}>
-    <div className="viewer-blurbg" aria-hidden="true" style={{ backgroundImage: `url("${posterSrc}")` }} />
-    {isGallery ? <div className="viewer-gallery">
-      {item.gallery.map((g, i) => <figure key={`${item.id}-${i}`}>
-        <img src={image(g.src)} alt={g.caption || `${item.title} görsel ${i + 1}`} loading={i === 0 ? "eager" : "lazy"} />
+    <div className="viewer-blurbg" aria-hidden="true" style={{ backgroundImage: `url("${blurSrc}")` }} />
+    {isGallery ? <div className={`viewer-gallery${frames.length > 1 ? " has-frames" : ""}`}>
+      {frames.map((g, i) => <figure key={`${item.id}-${i}`} className={i === frameIdx ? "is-current" : undefined}>
+        <Picture src={g.src} alt={g.caption || `${item.title} görsel ${i + 1}`} sizes="(max-width: 900px) 92vw, 70vw" priority={i === 0} />
         {g.caption ? <figcaption>{g.caption}</figcaption> : null}
       </figure>)}
+      {frames.length > 1 ? <ul className="viewer-frame-thumbs" aria-label="Kareler">
+        {frames.map((g, i) => <li key={`${item.id}-thumb-${i}`}>
+          <button
+            type="button"
+            className={`viewer-frame-thumb${i === frameIdx ? " is-active" : ""}`}
+            aria-label={g.caption || `${item.title} görsel ${i + 1}`}
+            aria-current={i === frameIdx ? "true" : undefined}
+            onClick={() => setFrameIdx(i)}
+          >
+            <Picture src={g.src} alt="" sizes="72px" />
+          </button>
+        </li>)}
+      </ul> : null}
     </div> : (!videoError ? <video
       key={item.id}
       ref={videoRef}
       className="viewer-video"
       src={item.video}
-      poster={posterSrc}
+      poster={posterWebp}
       controls
       playsInline
       preload="metadata"
       onError={onVideoError}
       onDoubleClick={onDoubleClick}
-    /> : <img className="viewer-fallback" src={posterSrc} alt={`${item.title} önizleme`} />)}
+    /> : <Picture className="viewer-fallback" src={item.poster} alt={`${item.title} önizleme`} sizes="(max-width: 900px) 92vw, 70vw" priority width={item.width} height={item.height} />)}
     <span className="viewer-kind" aria-hidden="true">{isGallery ? "▦ Galeri" : "▶ Video"}</span>
     {muted && !videoError && !isGallery ? <button type="button" className="viewer-unmute" onClick={onToggleMute}>Sesi aç</button> : null}
     <button type="button" className="viewer-fullscreen" onClick={onFullscreen} aria-label="Tam ekran">⛶</button>
@@ -150,7 +223,7 @@ function WorkInfo({ item }) {
 
 function RelatedWorks({ items, activeId, onSelect }) {
   return <div className="viewer-related">
-    <p className="viewer-related-title">Aynı kategoriden diğer çalışmalar</p>
+    <p className="viewer-related-title">Aynı kategorideki çalışmalar</p>
     <ul>
       {items.map((rel) => {
         const isActive = rel.id === activeId;
@@ -164,7 +237,7 @@ function RelatedWorks({ items, activeId, onSelect }) {
             aria-label={`${rel.title} çalışmasını ${rel.kind === "gallery" ? "incele" : "izle"}`}
           >
             <span className="viewer-thumb-img" style={ratio ? { aspectRatio: ratio } : undefined}>
-              <img src={image(rel.poster)} alt="" loading="lazy" />
+              <Picture src={rel.poster} alt="" sizes="132px" width={rel.width} height={rel.height} />
               <i aria-hidden="true">{rel.kind === "gallery" ? "▦" : "▶"}</i>
             </span>
             <span className="viewer-thumb-text"><b>{rel.title}</b><span>{rel.sub}</span></span>
@@ -175,23 +248,27 @@ function RelatedWorks({ items, activeId, onSelect }) {
   </div>;
 }
 
-const TAB_LABELS = { "motion-sosyal": "MOTION · SOSYAL" };
-
 function WorkViewer({ active, tabs, onSelectTab, related, onSelect, onClose, videoRef, stageRef, muted, onToggleMute, videoError, onVideoError, onFullscreen, onStageDoubleClick }) {
   if (!active) return null;
+  const frameCount = active.kind === "gallery" && Array.isArray(active.gallery) ? active.gallery.length : 0;
+  const stripCount = frameCount > 1 ? frameCount : (related.length > 1 ? related.length : 0);
+  const stripRows = stripCount > 2 ? 2 : (stripCount > 0 ? 1 : 0);
   return <React.Fragment>
-    <div className="viewer-tabs" role="tablist" aria-label="Çalışma kategorileri">
+    {tabs.length > 0 ? <div className="viewer-tabs" role="tablist" aria-label="Çalışma kategorileri">
       {tabs.map((t) => <button
         key={t.category}
         type="button"
         role="tab"
+        disabled={!t.available}
+        title={t.available ? (t.full || t.label) : "Bu kategoride henüz çalışma yok"}
         aria-selected={active.category === t.category}
-        className={`viewer-tab${active.category === t.category ? " is-active" : ""}`}
+        aria-disabled={!t.available || undefined}
+        className={`viewer-tab${active.category === t.category ? " is-active" : ""}${!t.available ? " is-disabled" : ""}`}
         onClick={() => onSelectTab(t.category)}
       >{t.label}</button>)}
-    </div>
-    <div className="selected-viewer-inner">
-    <button type="button" className="viewer-close" onClick={onClose} aria-label="İzleyiciyi kapat">✕</button>
+    </div> : null}
+    <div className={`selected-viewer-inner${related.length > 1 ? " has-rail" : ""}${frameCount > 1 ? " has-frames" : ""}${stripRows ? ` strip-rows-${stripRows}` : ""}`}>
+    <button type="button" className="viewer-close" onClick={onClose} aria-label="İzleyiciyi kapat"><CloseMark /></button>
     <div className="viewer-main">
       <WorkInfo item={active} />
       <WorkStage
@@ -206,7 +283,7 @@ function WorkViewer({ active, tabs, onSelectTab, related, onSelect, onClose, vid
         onFullscreen={onFullscreen}
       />
     </div>
-    <RelatedWorks items={related} activeId={active.id} onSelect={onSelect} />
+    {related.length > 1 ? <RelatedWorks items={related} activeId={active.id} onSelect={onSelect} /> : null}
     </div>
   </React.Fragment>;
 }
@@ -229,13 +306,10 @@ function SelectedWork() {
     if (!active) return [];
     return content.works.filter((w) => w.category === active.category);
   }, [active]);
-  const tabs = React.useMemo(() => {
-    const seen = new Map();
-    content.works.forEach((w) => {
-      if (!seen.has(w.category)) seen.set(w.category, TAB_LABELS[w.category] || w.categoryLabel);
-    });
-    return [...seen.entries()].map(([category, label]) => ({ category, label }));
-  }, []);
+  const tabs = React.useMemo(() => content.galleryTabs.map((tab) => ({
+    ...tab,
+    available: content.works.some((work) => work.category === tab.category),
+  })), []);
 
   const openViewer = React.useCallback((id, openerEl) => {
     if (viewerMounted) {
@@ -282,17 +356,42 @@ function SelectedWork() {
   }, []);
 
   React.useEffect(() => {
+    if (!viewerMounted) return;
+    const mq = window.matchMedia("(max-width: 1100px)");
+    const sync = () => {
+      document.body.classList.toggle("viewer-open", mq.matches);
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => {
+      mq.removeEventListener("change", sync);
+      document.body.classList.remove("viewer-open");
+    };
+  }, [viewerMounted]);
+
+  React.useEffect(() => {
     if (!viewerMounted || !viewerExpanded) return;
-    const stopTrack = trackCenter(sectionRef, 600);
+    const mq = window.matchMedia("(max-width: 1100px)");
+    let stopTrack = null;
     const center = () => {
-      if (!sectionRef.current) return;
+      if (mq.matches || !sectionRef.current) return;
       try { sectionRef.current.scrollIntoView({ behavior: "smooth", block: "center" }); } catch {}
     };
-    const onResize = () => center();
-    window.addEventListener("resize", onResize);
+    const apply = () => {
+      if (stopTrack) {
+        stopTrack();
+        stopTrack = null;
+      }
+      if (mq.matches) return;
+      stopTrack = trackCenter(sectionRef, 600);
+    };
+    apply();
+    mq.addEventListener("change", apply);
+    window.addEventListener("resize", center);
     return () => {
-      stopTrack();
-      window.removeEventListener("resize", onResize);
+      mq.removeEventListener("change", apply);
+      window.removeEventListener("resize", center);
+      if (stopTrack) stopTrack();
     };
   }, [viewerMounted, viewerExpanded]);
 
@@ -362,9 +461,8 @@ function SelectedWork() {
           <h2>{content.selected.title.map(x => <React.Fragment key={x}>{x}<br /></React.Fragment>)}</h2>
           <span className="short-rule" />
           <p className="selected-body">{content.selected.body}</p>
-          <a href="#services">{content.selected.action} <Arrow /></a>
         </aside>
-        <div className="work-grid">{content.works.map(item => <WorkCard
+        <div className="work-grid">{content.works.filter((item) => !item.detailOnly).map(item => <WorkCard
           key={item.id}
           item={item}
           onOpen={(e) => openViewer(item.id, e.currentTarget)}
@@ -535,10 +633,9 @@ function Showreel() {
   return <React.Fragment>
   {open ? <div className="showreel-scrim" aria-hidden="true" onClick={stop} /> : null}
   <section ref={sectionRef} className={`showreel${open ? " is-open" : ""}${expanded ? " is-playing" : ""}`} id="showreel" onClick={() => { if (!open) start(); }} onMouseEnter={onReelEnter} onMouseLeave={onReelLeave}>
-    <img src={image("showreel.jpg")} alt="Yağmur altında sinematik portre" />
+    <Picture src="showreel.jpg" alt="Yağmur altında sinematik portre" sizes="100vw" />
     <div className="show-copy"><p className="eyebrow">{content.showreel.kicker}</p><h2>{content.showreel.title.split("\n").map((line, i) => <React.Fragment key={line}>{i > 0 && <br />}{line}</React.Fragment>)}</h2><span className="short-rule" /><p>{content.showreel.body.split("\n").map((line, i) => <React.Fragment key={line}>{i > 0 && <br />}{line}</React.Fragment>)}</p></div>
     <button className="play" aria-label="Showreel'i oynat" aria-expanded={expanded} onClick={start}>▶</button><p className="watch">{content.showreel.watch.map(x => <React.Fragment key={x}>{x}<br /></React.Fragment>)}</p>
-    <div className="script reel-script">{content.showreel.script.map(x => <React.Fragment key={x}>{x}<br /></React.Fragment>)}</div>
     {open ? <div className="showreel-player" aria-hidden={!expanded}>
       <div className="showreel-player-inner">
         <aside className="showreel-side">
@@ -629,7 +726,7 @@ function Philosophy() {
     className={`philosophy${page === 0 ? " at-top" : ""}`}
     id="about"
   >
-    <div className="ph-image"><img src={image("portrait.jpg")} alt="Işığa bakan kadın" /><span className="script">{content.philosophy.script.map(x => <React.Fragment key={x}>{x}<br /></React.Fragment>)}</span></div>
+    <div className="ph-image"><Picture src="portrait.jpg" alt="Işığa bakan kadın" sizes="(max-width: 900px) 100vw, 26vw" /></div>
     <div className="ph-title"><p className="eyebrow">{content.philosophy.kicker}</p><button type="button" className="ph-title-btn" onClick={() => setPage(0)} aria-label="Başa dön">{content.philosophy.title.split("\n").map((line, i) => <React.Fragment key={line}>{i > 0 && <br />}{line}</React.Fragment>)}</button></div>
     <div className="ph-copy">
       <div className="ph-copy-scroll" ref={scrollRef} tabIndex={0} role="region" aria-roledescription="carousel" aria-label="Bayram Şimşekoğlu hakkında" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} onKeyDown={onKey}>
@@ -644,7 +741,7 @@ function Philosophy() {
         </article>)}
       </div>
     </div>
-    <nav className="ph-menu" aria-label="Uzmanlık alanları">
+    <nav className="ph-menu" aria-label="Çalışma biçimim">
       {chapters.map(([name], i) => <button
         key={name}
         type="button"
@@ -656,36 +753,65 @@ function Philosophy() {
   </section>;
 }
 
-function Shape({ src }) { return <img className="shape" src={image(`services/${src}`)} alt="" />; }
+function Shape({ src, title }) { return <Picture className="shape" src={`services/${src}`} alt={`[GEÇİCİ] ${title} ikonu`} sizes="160px" />; }
+
+function serviceView(idx) {
+  const [, title] = content.services[idx];
+  const panel = content.servicePanels[idx];
+  return {
+    title,
+    body: panel.body,
+    examples: panel.examples.map((id) => content.works.find((w) => w.id === id)).filter(Boolean),
+  };
+}
 
 function Services() {
   const [activeIdx, setActiveIdx] = React.useState(-1);
   const [viewIdx, setViewIdx] = React.useState(-1);
+  const [exampleIdx, setExampleIdx] = React.useState(0);
   const [phase, setPhase] = React.useState("first");
-  const swapTimer = React.useRef(null);
+  const [viewerMounted, setViewerMounted] = React.useState(false);
+  const [viewerExpanded, setViewerExpanded] = React.useState(false);
   const sectionRef = React.useRef(null);
-  const active = activeIdx >= 0;
-  const view = viewIdx >= 0 ? {
-    title: content.services[viewIdx][1],
-    body: content.servicePanels[viewIdx].body,
-    examples: content.servicePanels[viewIdx].examples.map((id) => content.works.find((w) => w.id === id)).filter(Boolean),
-  } : null;
+  const openerRef = React.useRef(null);
+  const closeTimer = React.useRef(null);
+  const swapTimer = React.useRef(null);
+  const panelIdx = viewerMounted ? activeIdx : viewIdx;
+  const view = panelIdx >= 0 ? serviceView(panelIdx) : null;
+  const frameCount = view ? view.examples.length : 0;
+  const stripRows = frameCount > 2 ? 2 : (frameCount > 1 ? 1 : 0);
+  const selectedExample = view && frameCount
+    ? view.examples[Math.min(exampleIdx, frameCount - 1)]
+    : null;
+  const desktopOpen = activeIdx >= 0 && !viewerMounted;
 
-  React.useEffect(() => () => { if (swapTimer.current) clearTimeout(swapTimer.current); }, []);
+  const isNarrow = () => window.matchMedia("(max-width: 1100px)").matches;
 
-  React.useEffect(() => {
-    if (activeIdx === -1) return;
-    const onDocClick = (e) => {
-      if (e.target && e.target.closest && !e.target.closest("#services")) {
-        if (swapTimer.current) clearTimeout(swapTimer.current);
-        setActiveIdx(-1);
-      }
-    };
-    document.addEventListener("click", onDocClick);
-    return () => document.removeEventListener("click", onDocClick);
-  }, [activeIdx]);
+  const closeOverlay = React.useCallback(() => {
+    setViewerExpanded(false);
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => {
+      setViewerMounted(false);
+      setActiveIdx(-1);
+      setViewIdx(-1);
+      const opener = openerRef.current;
+      if (opener && document.contains(opener)) opener.focus({ preventScroll: true });
+    }, 520);
+  }, []);
 
-  const select = (i) => {
+  const openOverlay = (i, openerEl) => {
+    openerRef.current = openerEl || document.activeElement;
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    if (swapTimer.current) clearTimeout(swapTimer.current);
+    setActiveIdx(i);
+    setViewIdx(i);
+    setExampleIdx(0);
+    if (viewerMounted) return;
+    setViewerMounted(true);
+    requestAnimationFrame(() => requestAnimationFrame(() => setViewerExpanded(true)));
+  };
+
+  const selectDesktop = (i) => {
     if (i === activeIdx) {
       if (swapTimer.current) clearTimeout(swapTimer.current);
       setActiveIdx(-1);
@@ -706,32 +832,164 @@ function Services() {
       }, 220);
     }
   };
-  return <section ref={sectionRef} className={`services${active ? " is-open" : ""}`} id="services">
-    <div className="services-intro"><p className="eyebrow">{content.servicesIntro.kicker}</p><h2>{content.servicesIntro.title.split("\n").map((line, i) => <React.Fragment key={line}>{i > 0 && <br />}{line}</React.Fragment>)}</h2><p>{content.servicesIntro.body.split("\n").map((line, i) => <React.Fragment key={line}>{i > 0 && <br />}{line}</React.Fragment>)}</p><a href="#contact">{content.servicesIntro.action} <Arrow /></a></div>
-    <div className="service-list" role="tablist" aria-label="Çalışma alanları">{content.services.map(([img, title, sub], i) => <button
-      key={title}
-      type="button"
-      role="tab"
-      aria-selected={activeIdx === i}
-      className={`service-card${activeIdx === i ? " is-active" : ""}`}
-      onClick={() => select(i)}
-    ><Shape src={img} /><b>{title}</b><span>{sub}</span></button>)}</div>
-    {active && view ? <React.Fragment key={viewIdx}>
-      <div className={phase === "leaving" ? "service-detail-info is-leaving" : phase === "swap" ? "service-detail-info is-swap-info" : "service-detail-info is-first"} role="tabpanel"><h3>{view.title}</h3><p>{view.body}</p></div>
-      <div className={phase === "leaving" ? "service-detail-row is-leaving" : "service-detail-row"}>{view.examples.map((w, fi) => <figure
-        key={w.id}
-        className={phase === "swap" ? "service-example is-swap-fig" : "service-example"}
-        style={phase === "swap" ? { animationDelay: `${fi * 60}ms` } : undefined}
-      >
-        <img src={image(w.poster)} alt={w.title} loading="lazy" />
-        <figcaption><b>{w.title}</b><span>{w.sub}</span></figcaption>
-      </figure>)}</div>
-    </React.Fragment> : null}
-  </section>;
+
+  const onCardClick = (i, openerEl) => {
+    if (isNarrow()) openOverlay(i, openerEl);
+    else selectDesktop(i);
+  };
+
+  React.useEffect(() => () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    if (swapTimer.current) clearTimeout(swapTimer.current);
+  }, []);
+  React.useEffect(() => { setExampleIdx(0); }, [viewIdx]);
+
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1100px)");
+    const onChange = () => {
+      if (mq.matches) {
+        if (activeIdx >= 0 && !viewerMounted) {
+          setViewerMounted(true);
+          setViewerExpanded(true);
+        }
+      } else if (viewerMounted) {
+        setViewerMounted(false);
+        setViewerExpanded(false);
+        document.body.classList.remove("viewer-open");
+        if (activeIdx >= 0) {
+          setViewIdx(activeIdx);
+          setPhase("first");
+        }
+      }
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [activeIdx, viewerMounted]);
+
+  React.useEffect(() => {
+    if (!viewerMounted) return;
+    const mq = window.matchMedia("(max-width: 1100px)");
+    const sync = () => {
+      document.body.classList.toggle("viewer-open", mq.matches);
+    };
+    sync();
+    mq.addEventListener("change", sync);
+    return () => {
+      mq.removeEventListener("change", sync);
+      document.body.classList.remove("viewer-open");
+    };
+  }, [viewerMounted]);
+
+  React.useEffect(() => {
+    if (activeIdx === -1 || viewerMounted) return;
+    const onDocClick = (e) => {
+      if (e.target && e.target.closest && !e.target.closest("#services")) {
+        if (swapTimer.current) clearTimeout(swapTimer.current);
+        setActiveIdx(-1);
+      }
+    };
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, [activeIdx, viewerMounted]);
+
+  React.useEffect(() => {
+    if (!viewerMounted) return;
+    const onKey = (e) => {
+      if (e.key === "Escape") closeOverlay();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [viewerMounted, closeOverlay]);
+
+  return <React.Fragment>
+    {viewerMounted ? <div className="selected-scrim" aria-hidden="true" onClick={closeOverlay} /> : null}
+    <section ref={sectionRef} className={`services${desktopOpen || viewerMounted ? " is-open" : ""}${viewerExpanded ? " is-playing" : ""}`} id="services">
+      <div className="services-intro"><p className="eyebrow">{content.servicesIntro.kicker}</p><h2>{content.servicesIntro.title.split("\n").map((line, i) => <React.Fragment key={line}>{i > 0 && <br />}{line}</React.Fragment>)}</h2><p>{content.servicesIntro.body.split("\n").map((line, i) => <React.Fragment key={line}>{i > 0 && <br />}{line}</React.Fragment>)}</p><a href="#contact">{content.servicesIntro.action} <Arrow /></a></div>
+      <div className="service-list" role="tablist" aria-label="Çalışma alanları">{content.services.map(([img, title, sub], i) => <button
+        key={title}
+        type="button"
+        role="tab"
+        aria-selected={activeIdx === i}
+        aria-haspopup={viewerMounted ? "dialog" : undefined}
+        className={`service-card${activeIdx === i ? " is-active" : ""}`}
+        onClick={(e) => onCardClick(i, e.currentTarget)}
+      ><Shape src={img} title={title} /><b>{title}</b><span>{sub}</span></button>)}</div>
+      {desktopOpen && view ? <React.Fragment key={viewIdx}>
+        <div className={phase === "leaving" ? "service-detail-info is-leaving" : phase === "swap" ? "service-detail-info is-swap-info" : "service-detail-info is-first"} role="tabpanel"><h3>{view.title}</h3><p>{view.body}</p></div>
+        <div className={`${phase === "leaving" ? "service-detail-row is-leaving" : "service-detail-row"}${view.examples.length > 1 ? " has-thumbs" : ""}`}>
+          {view.examples.length > 1 ? <ul className="service-thumbs" aria-label="Örnek kareler">
+            {view.examples.map((w, fi) => <li key={w.id}>
+              <button
+                type="button"
+                className={`service-thumb${fi === exampleIdx ? " is-active" : ""}`}
+                aria-current={fi === exampleIdx ? "true" : undefined}
+                aria-label={w.title}
+                onClick={() => setExampleIdx(fi)}
+              >
+                <Picture src={w.poster} alt="" sizes="72px" width={w.width} height={w.height} />
+              </button>
+            </li>)}
+          </ul> : null}
+          {selectedExample ? <figure className={phase === "swap" ? "service-example is-swap-fig" : "service-example"}>
+            <Picture src={selectedExample.poster} alt={`[GEÇİCİ] ${selectedExample.title} karesi`} sizes="(max-width: 1100px) 72vw, 420px" width={selectedExample.width} height={selectedExample.height} priority />
+            <figcaption><b>{selectedExample.title}</b><span>{selectedExample.sub}</span></figcaption>
+          </figure> : null}
+        </div>
+      </React.Fragment> : null}
+      {viewerMounted && view ? <div className="selected-viewer">
+        <div className={`selected-viewer-inner${frameCount > 1 ? " has-frames" : ""}${stripRows ? ` strip-rows-${stripRows}` : ""}`}>
+          <button type="button" className="viewer-close" onClick={closeOverlay} aria-label="İzleyiciyi kapat"><CloseMark /></button>
+          <div className="viewer-main">
+            <div className="viewer-info">
+              <h3>{view.title}</h3>
+              <p className="viewer-desc">{view.body}</p>
+            </div>
+            {selectedExample ? <div className="viewer-stage">
+              <div className={`viewer-gallery${frameCount > 1 ? " has-frames" : ""}`}>
+                {view.examples.map((w, i) => <figure key={w.id} className={i === exampleIdx ? "is-current" : undefined}>
+                  <Picture src={w.poster} alt={`[GEÇİCİ] ${w.title} karesi`} sizes="(max-width: 1100px) 92vw, 70vw" width={w.width} height={w.height} priority={i === 0} />
+                  <figcaption><b>{w.title}</b> {w.sub}</figcaption>
+                </figure>)}
+                {frameCount > 1 ? <ul className="viewer-frame-thumbs" aria-label="Örnek kareler">
+                  {view.examples.map((w, i) => <li key={`${w.id}-thumb`}>
+                    <button
+                      type="button"
+                      className={`viewer-frame-thumb${i === exampleIdx ? " is-active" : ""}`}
+                      aria-label={w.title}
+                      aria-current={i === exampleIdx ? "true" : undefined}
+                      onClick={() => setExampleIdx(i)}
+                    >
+                      <Picture src={w.poster} alt="" sizes="72px" width={w.width} height={w.height} />
+                    </button>
+                  </li>)}
+                </ul> : null}
+              </div>
+            </div> : null}
+          </div>
+        </div>
+      </div> : null}
+    </section>
+  </React.Fragment>;
 }
 
 function Footer() {
-  return <footer id="contact"><div className="footer-bg" /><Brand light /><h2>{content.footer.title.split("\n").map((line, i) => <React.Fragment key={line}>{i > 0 && <br />}{line}</React.Fragment>)}</h2><div className="footer-message">{content.footer.message.split("\n").map((line, i) => <React.Fragment key={line}>{i > 0 && <br />}{line}</React.Fragment>)}</div><a className="light-pill" href="#contact">{content.footer.action} <Arrow /></a><div className="social">◎ &nbsp;&nbsp; in &nbsp;&nbsp; ▶</div><small>© 2026 MISAL WORKS. TÜM HAKLARI SAKLIDIR.</small></footer>;
+  return <footer id="contact">
+    <div className="footer-bg" />
+    <Brand light />
+    <h2>{content.footer.title.split("\n").map((line, i) => <React.Fragment key={line}>{i > 0 && <br />}{line}</React.Fragment>)}</h2>
+    <div className="footer-message">
+      <p>{content.footer.message}</p>
+      <address className="footer-contact">
+        <a href={content.footer.phoneHref}>{content.footer.phone}</a>
+        <a href={`mailto:${content.footer.email}`}>{content.footer.email}</a>
+        <strong>{content.footer.location}</strong>
+        <span>{content.footer.address}</span>
+      </address>
+    </div>
+    <a className="light-pill" href={`mailto:${content.footer.email}`}>{content.footer.action} <Arrow /></a>
+    <div className="social">◎ &nbsp;&nbsp; in &nbsp;&nbsp; <a href="https://www.youtube.com/@misalworks" rel="me" aria-label="YouTube">▶</a></div>
+    <small>© 2026 MISAL WORKS. TÜM HAKLARI SAKLIDIR.</small>
+  </footer>;
 }
 
 function App() { return <main id="top"><Hero /><SelectedWork /><Showreel /><Philosophy /><Services /><Footer /></main>; }
