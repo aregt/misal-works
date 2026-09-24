@@ -65,7 +65,20 @@ function resolveImage(rel) {
     path.join(IMAGES, rel),
     path.join(IMAGES, "services", path.basename(rel)),
   ];
-  return candidates.find((p) => fs.existsSync(p)) || null;
+  if (candidates.some((p) => fs.existsSync(p))) return true;
+  // FND-011: services, webp'ye taşındı — orijinal yoksa varyantları da kabul et.
+  if (/\.png$/i.test(rel) || /\.jpe?g$/i.test(rel)) {
+    const base = path.basename(rel).replace(/\.(png|jpe?g)$/i, "");
+    const dirs = [path.join(IMAGES, path.dirname(rel)), path.join(IMAGES, "services")];
+    for (const dir of dirs) {
+      if (!fs.existsSync(dir)) continue;
+      const hasVariant = fs.readdirSync(dir).some((name) =>
+        name.startsWith(base + "-") && name.endsWith(".webp")
+      );
+      if (hasVariant) return true;
+    }
+  }
+  return false;
 }
 
 console.log("FND-010 check-foundation");
