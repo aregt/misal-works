@@ -1,0 +1,31 @@
+# Misal Works
+
+> Misal Works is Bayram Şimşekoğlu’s film and post-production studio in Istanbul. Services: advertising and promo films, motion graphics, 3D/CGI, VFX compositing, color grading, AI-assisted visual development, script-to-shoot production. Contact: hello@misalworks.com · +90 (216) 599 0134 · Justwork, Fatih Sultan Mehmet Mah., Balkan Cad., No:62A, 34770 Ümraniye / İstanbul.
+
+## Services
+
+- [Kurgu / Editing](https://misalworks.com/#services): Video editing, sound, pacing for film delivery.
+- [Hareketli grafik / Motion graphics](https://misalworks.com/#services): Titles, explainers, social cuts.
+- [3D görselleştirme / 3D CGI](https://misalworks.com/#services): Product, environment, digital scenes.
+- [Görsel efekt / VFX](https://misalworks.com/#services): Compositing, tracking, cleanup.
+- [AI görsel üretim](https://misalworks.com/#services): AI-assisted shots integrated into edit and grade.
+- [Renk ve kamera takibi](https://misalworks.com/#services): Grading and screen/track inserts.
+- [Senaryo ve çekim](https://misalworks.com/#services): Script, crew, shoot management.
+
+## Work
+
+- [Selected works gallery](https://misalworks.com/#work): Ads, outdoor LED, social, medical, exhibition films.
+- [Showreel](https://misalworks.com/#showreel): Short cut of recent work (YouTube embed).
+
+## About
+
+- [Bayram Şimşekoğlu](https://misalworks.com/#about): Founder; direct collaboration from brief to delivery.
+
+## Blog
+
+- [Yazılar (TR)](https://misalworks.com/blog/): Turkish articles on film, post, and visual production.
+
+## Optional
+
+- [Sitemap](https://misalworks.com/sitemap.xml)
+- [YouTube](https://www.youtube.com/@misalworks)

@@ -64,9 +64,15 @@ function Mark() {
   return <span className="mark" aria-hidden="true"><i /><i /></span>;
 }
 
-function Brand({ light = false, onNavigate }) {
-  const toTop = (e) => { e.preventDefault(); onNavigate?.(); try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { window.scrollTo(0, 0); } };
-  return <a className={`brand ${light ? "brand-light" : ""}`} href="#top" aria-label="Sayfa başına dön" onClick={toTop}><Mark /><span><b>MISAL WORKS</b><small>FİLM &amp; POST-PRODÜKSİYON</small></span></a>;
+function Brand({ light = false, onNavigate, href = "#top" }) {
+  const isHash = href.startsWith("#");
+  const onClick = (e) => {
+    if (!isHash) { onNavigate?.(); return; }
+    e.preventDefault();
+    onNavigate?.();
+    try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { window.scrollTo(0, 0); }
+  };
+  return <a className={`brand ${light ? "brand-light" : ""}`} href={href} aria-label={isHash ? "Sayfa başına dön" : "Misal Works ana sayfa"} onClick={onClick}><Mark /><span><b>MISAL WORKS</b><small>FİLM &amp; POST-PRODÜKSİYON</small></span></a>;
 }
 
 function Hero() {
@@ -126,9 +132,11 @@ function Hero() {
           const active = activeNav === href;
           const cls = active ? "is-active" : undefined;
           const cur = active ? "true" : undefined;
-          return href === "#showreel"
-            ? <a key={label} href={href} className={cls} aria-current={cur} onClick={(e) => { e.preventDefault(); closeMenu(); window.dispatchEvent(new CustomEvent("misal:open-showreel")); }}><span>{label}</span></a>
-            : <a key={label} href={href} className={cls} aria-current={cur} onClick={closeMenu}><span>{label}</span></a>;
+          const isPath = href.startsWith("/") && !href.startsWith("/#");
+          if (href === "#showreel") {
+            return <a key={label} href={href} className={cls} aria-current={cur} onClick={(e) => { e.preventDefault(); closeMenu(); window.dispatchEvent(new CustomEvent("misal:open-showreel")); }}><span>{label}</span></a>;
+          }
+          return <a key={label} href={href} className={cls} aria-current={cur} onClick={isPath ? undefined : closeMenu}><span>{label}</span></a>;
         })}</nav>
         <a className="top-cta" href="#contact" onClick={closeMenu}>Projenizi Konuşalım <Arrow /></a>
       </div>
@@ -983,6 +991,7 @@ function Footer() {
     <h2>{content.footer.title.split("\n").map((line, i) => <React.Fragment key={line}>{i > 0 && <br />}{line}</React.Fragment>)}</h2>
     <div className="footer-message">
       <p>{content.footer.message}</p>
+      <p className="footer-blog"><a href="/blog/">Yazılar</a></p>
       <address className="footer-contact">
         <a href={content.footer.phoneHref}>{content.footer.phone}</a>
         <a href={`mailto:${content.footer.email}`}>{content.footer.email}</a>
@@ -998,4 +1007,7 @@ function Footer() {
 
 function App() { return <main id="top"><Hero /><SelectedWork /><Showreel /><Philosophy /><Services /><Footer /></main>; }
 
-createRoot(document.getElementById("root")).render(<App />);
+// Prerendered static HTML sits in #root until React mounts; clear it to avoid duplicate DOM.
+const rootEl = document.getElementById("root");
+rootEl.textContent = "";
+createRoot(rootEl).render(<App />);

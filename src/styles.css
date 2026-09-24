@@ -1571,6 +1571,15 @@ footer h2 {
   max-width: 44ch;
 }
 
+.footer-blog {
+  margin-top: 12px;
+}
+
+.footer-blog a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .footer-contact {
   display: grid;
   gap: 8px;

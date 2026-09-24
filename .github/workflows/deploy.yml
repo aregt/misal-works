@@ -28,6 +28,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check:foundation
+      - run: npm run check:blog
       - run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
@@ -35,3 +36,10 @@ jobs:
           path: dist
       - id: deployment
         uses: actions/deploy-pages@v4
+      - name: Notify IndexNow
+        if: success()
+        run: |
+          curl -sS -X POST "https://api.indexnow.org/indexnow" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            -d '{"host":"misalworks.com","key":"f2468141aeab5096c81845e11422f7c0","keyLocation":"https://misalworks.com/f2468141aeab5096c81845e11422f7c0.txt","urlList":["https://misalworks.com/","https://misalworks.com/blog/"]}' \
+            || echo "IndexNow ping failed (non-fatal)"

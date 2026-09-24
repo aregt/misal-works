@@ -1,0 +1,14 @@
+:root {
+  --ink: #102633;
+  --paper: #efede7;
+  --white: #f8f7f2;
+  --line: #9aa5a9;
+  --surface: #f7f5ef;
+  --surface-2: #ebe8e1;
+  --overlay: #0a151c;
+  --hairline: rgba(16, 38, 51, .14);
+  --paper-2: #f0ede6;
+  --cream: #f2eee6;
+  --font-body: "Montserrat", "Segoe UI", Arial, sans-serif;
+  --font-display: "Cormorant Garamond", Georgia, serif;
+}

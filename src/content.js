@@ -1,7 +1,7 @@
 export const content = {
   nav: [
     ["Galeri", "#work"], ["Neler Yapıyorum?", "#services"], ["Showreel", "#showreel"],
-    ["Bayram", "#about"], ["İletişim", "#contact"],
+    ["Bayram", "#about"], ["Yazılar", "/blog/"], ["İletişim", "#contact"],
   ],
   hero: {
     kicker: "FİLM · ANİMASYON · POST-PRODÜKSİYON",
